@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Token Display</title>
+    <style>
+        .token-label {
+            margin: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div id="tokenDisplay" class="token-label">Loading token...</div>
+
+    <script>
+        window.addEventListener('load', async () => {
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const authCode = urlParams.get('code');
+            const key = '3MVG9.AgwtoIvERTBdqgiPPP26gMrhhjP_EwEugz7a7KrVOMAg9RCl9LLAImcTJxBdSgPl5qh6w00UGMWNxWh'
+            const secret = '226A765B154D14BABE2E2DE227D6200B8DC1C7154DCE7BD2EF15EDBD0E27E3F4'
+            const tokenUrl = 'https://orgfarm-d04cf1dba7.test1.my.pc-rnd.site.com/ESWOFWestromESDeploy1738870840484/services/oauth2/token'
+            const callbackUrl = 'https://login.salesforce.com';
+            const uuid = '4b47ef1c-f136-4c2e-9cb7-3b5a59e1b283';
+
+            console.log('Authorization code:', authCode);
+            console.log('Client ID:', key);
+            console.log('Client secret:', secret); 
+            console.log('Token URL:', tokenUrl);
+            console.log('Callback URL:', callbackUrl);
+            console.log('UUID:', uuid);
+
+            try {
+                let response = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Auth-Request-Type': 'guest',
+                        'Uvid-Hint': `UVID ${uuid}`
+                    },
+                    body: new URLSearchParams({
+                        client_id: key,
+                        client_secret: secret,
+                        redirect_uri: callbackUrl, 
+                        grant_type: 'authorization_code',
+                        code: authCode
+                    })
+                });
+                if (!response.ok) {
+                    console.log('Response status:', response.status);
+                    console.log('Response text:', await response.text());
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.text();
+                document.getElementById('tokenDisplay').textContent = data;
+            } catch (error) {
+                console.error('Error fetching token:', error);
+                document.getElementById('tokenDisplay').textContent = 'Error loading token';
+            }
+        });
+    </script>
+</body>
+</html>
