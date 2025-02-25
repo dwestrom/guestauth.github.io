@@ -59,7 +59,7 @@
                 document.getElementById('tokenDisplay').textContent = data;
             } catch (error) {
                 console.error('Error fetching token:', error);
-                document.getElementById('tokenDisplay').textContent = 'Error loading token';
+                document.getElementById('tokenDisplay').textContent = authCode;
             }
         });
     </script>
