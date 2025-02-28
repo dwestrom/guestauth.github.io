@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Guest Authentication</title>
+    <style>
+        .input-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            padding: 5px;
+            width: 300px;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        #uuidDisplay {
+            margin: 10px 0;
+            font-family: monospace;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="input-group">
+        <label for="key">Key:</label>
+        <input type="text" id="key" name="key">
+    </div>
+
+    <div class="input-group">
+        <label for="secret">Secret:</label>
+        <input type="text" id="secret" name="secret">
+    </div>
+
+    <div class="input-group">
+        <label for="callbackUrl">Callback URL:</label>
+        <input type="text" id="callbackUrl" name="callbackUrl">
+    </div>
+
+    <div class="input-group">
+        <label for="experienceSiteUrl">Experience Site URL:</label>
+        <input type="text" id="experienceSiteUrl" name="experienceSiteUrl">
+    </div>
+
+    <button id="uuidButton">Generate UUID</button>
+    <div id="uuidDisplay"></div>
+    
+    <button id="authorizeButton">Get Authorize Token</button>
+
+    <script>
+        // Get input elements
+        const keyInput = document.getElementById('key');
+        const secretInput = document.getElementById('secret');
+        const callbackUrlInput = document.getElementById('callbackUrl');
+        const experienceSiteUrlInput = document.getElementById('experienceSiteUrl');
+        const uuidButton = document.getElementById('uuidButton');
+        const uuidDisplay = document.getElementById('uuidDisplay');
+        const authorizeButton = document.getElementById('authorizeButton');
+
+        // Load saved values if they exist
+        keyInput.value = localStorage.getItem('guestKey') || '';
+        secretInput.value = localStorage.getItem('guestSecret') || '';
+        callbackUrlInput.value = localStorage.getItem('guestCallbackUrl') || '';
+        experienceSiteUrlInput.value = localStorage.getItem('guestExperienceSiteUrl') || '';
+        
+        // Display saved UUID if it exists
+        const savedUUID = localStorage.getItem('guestUUID');
+        if (savedUUID) {
+            uuidDisplay.textContent = `Current UUID: ${savedUUID}`;
+        }
+
+        // Save values when they change
+        keyInput.addEventListener('change', (e) => {
+            localStorage.setItem('guestKey', e.target.value);
+        });
+
+        secretInput.addEventListener('change', (e) => {
+            localStorage.setItem('guestSecret', e.target.value);
+        });
+
+        callbackUrlInput.addEventListener('change', (e) => {
+            localStorage.setItem('guestCallbackUrl', e.target.value);
+        });
+
+        experienceSiteUrlInput.addEventListener('change', (e) => {
+            localStorage.setItem('guestExperienceSiteUrl', e.target.value);
+        });
+
+        // UUID generation function
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0,
+                    v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // UUID button click handler
+        uuidButton.addEventListener('click', () => {
+            const uuid = generateUUID();
+            localStorage.setItem('guestUUID', uuid);
+            uuidDisplay.textContent = `Current UUID: ${uuid}`;
+        });
+
+        // Authorize button click handler
+        authorizeButton.addEventListener('click', async () => {
+            const experienceSiteBaseUrl = localStorage.getItem('guestExperienceSiteUrl');
+            const key = localStorage.getItem('guestKey');
+            const secret = localStorage.getItem('guestSecret');
+            const callbackUrl = localStorage.getItem('guestCallbackUrl');
+            const uuid = localStorage.getItem('guestUUID');
+
+            if (!experienceSiteBaseUrl || !key || !secret || !callbackUrl || !uuid) {
+                alert('Please fill in all fields and generate a UUID first');
+                return;
+            }
+
+            const experienceSiteUrl = `${experienceSiteBaseUrl.replace(/\/$/, '')}/services/oauth2/authorize`;
+
+            console.log('Experience site URL:', experienceSiteUrl);
+
+            let response
+            try {
+                response = await fetch(experienceSiteUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Auth-Request-Type': 'guest',
+                        'Uvid-Hint': `UVID ${uuid}`
+                    },
+                    body: new URLSearchParams({
+                        client_id: key,
+                        client_secret: secret,
+                        redirect_uri: callbackUrl, 
+                        response_type: 'code_credentials',
+                        scope: 'openid'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // console.log('Authorization response:', data);
+                // console.log('Authorization headers:', headers.get('Location'));
+                // const location = headers.get('Location');
+                // console.log('Location:', location);
+                // const code = location.split('code=')[1];
+                // console.log('Authorization code:', code);
+            } catch (error) {
+                console.log('Response headers:', response);
+                console.error('Error getting authorization:', error);
+                alert('Error getting authorization token. Check console for details.');
+            }
+        });
+    </script>
+</body>
+</html>
