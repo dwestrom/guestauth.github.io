@@ -49,8 +49,15 @@
 
     <button id="uuidButton">Generate UUID</button>
     <div id="uuidDisplay"></div>
+
+    <button id="pkceButton">Generate PKCE</button>
+    <div id="pkceDisplay"></div>
     
     <button id="authorizeButton">Get Authorize Token</button>
+    <div id="authCodeDisplay"></div>
+
+    <button id="jwtButton">Get JWT Token</button>
+    <div id="jwtDisplay"></div>
 
     <script>
         // Get input elements
@@ -60,7 +67,11 @@
         const experienceSiteUrlInput = document.getElementById('experienceSiteUrl');
         const uuidButton = document.getElementById('uuidButton');
         const uuidDisplay = document.getElementById('uuidDisplay');
+        const pkceButton = document.getElementById('pkceButton');
+        const pkceDisplay = document.getElementById('pkceDisplay');
         const authorizeButton = document.getElementById('authorizeButton');
+        const jwtButton = document.getElementById('jwtButton');
+        const jwtDisplay = document.getElementById('jwtDisplay');
 
         // Load saved values if they exist
         keyInput.value = localStorage.getItem('guestKey') || '';
@@ -107,13 +118,38 @@
             uuidDisplay.textContent = `Current UUID: ${uuid}`;
         });
 
+        // PKCE button click handler
+        pkceButton.addEventListener('click', async () => {
+            const experienceSiteBaseUrl = localStorage.getItem('guestExperienceSiteUrl');
+            
+            try {
+                const experienceSiteUrl = `${experienceSiteBaseUrl.replace(/\/$/, '')}/services/oauth2/pkce/generator`;
+                const response = await fetch(experienceSiteUrl, {
+                    method: 'GET'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                localStorage.setItem('pkceCodeChallenge', data.code_challenge);
+                localStorage.setItem('pkceCodeVerifier', data.code_verifier);
+                pkceDisplay.textContent = `Code Challenge: ${data.code_challenge}\nCode Verifier: ${data.code_verifier}`;
+            } catch (error) {
+                console.error('Error generating PKCE:', error);
+                alert('Error generating PKCE. Check console for details.');
+            }
+        });
+
         // Authorize button click handler
         authorizeButton.addEventListener('click', async () => {
             const experienceSiteBaseUrl = localStorage.getItem('guestExperienceSiteUrl');
             const key = localStorage.getItem('guestKey');
-            const secret = localStorage.getItem('guestSecret');
+            // const secret = localStorage.getItem('guestSecret');
             const callbackUrl = localStorage.getItem('guestCallbackUrl');
             const uuid = localStorage.getItem('guestUUID');
+            const pkceCodeChallenge = localStorage.getItem('pkceCodeChallenge');
 
             if (!experienceSiteBaseUrl || !key || !secret || !callbackUrl || !uuid) {
                 alert('Please fill in all fields and generate a UUID first');
@@ -124,7 +160,8 @@
 
             console.log('Experience site URL:', experienceSiteUrl);
 
-            let response
+            let response;
+            let authCode;
             try {
                 response = await fetch(experienceSiteUrl, {
                     method: 'POST',
@@ -135,27 +172,76 @@
                     },
                     body: new URLSearchParams({
                         client_id: key,
-                        client_secret: secret,
+                        // client_secret: secret,
                         redirect_uri: callbackUrl, 
                         response_type: 'code_credentials',
-                        scope: 'openid'
+                        scope: 'openid',
+                        code_challenge: pkceCodeChallenge,
                     })
                 });
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
+
+                const data = await response.json();
+                authCode = data.code;
+                localStorage.setItem('authCode', authCode);
+                document.getElementById('authCodeDisplay').textContent = `Authorization Code: ${authCode}`;
                 
-                // console.log('Authorization response:', data);
-                // console.log('Authorization headers:', headers.get('Location'));
-                // const location = headers.get('Location');
-                // console.log('Location:', location);
-                // const code = location.split('code=')[1];
-                // console.log('Authorization code:', code);
             } catch (error) {
                 console.log('Response headers:', response);
                 console.error('Error getting authorization:', error);
                 alert('Error getting authorization token. Check console for details.');
+            }
+        });
+
+        // JWT Token button click handler
+        jwtButton.addEventListener('click', async () => {
+            const experienceSiteBaseUrl = localStorage.getItem('guestExperienceSiteUrl');
+            const key = localStorage.getItem('guestKey');
+            // const secret = localStorage.getItem('guestSecret');
+            const callbackUrl = localStorage.getItem('guestCallbackUrl');
+            const uuid = localStorage.getItem('guestUUID');
+            const authCode = localStorage.getItem('authCode');
+            const codeVerifier = localStorage.getItem('pkceCodeVerifier');
+
+            if (!experienceSiteBaseUrl || !authCode || !codeVerifier) {
+                alert('Please get an authorization code first');
+                return;
+            }
+
+            // const tokenUrl = `${experienceSiteBaseUrl.replace(/\/$/, '')}/services/oauth2/token`;
+            const tokenUrl = `https://orgfarm-d04cf1dba7.test1.my.pc-rnd.salesforce.com/services/oauth2/token`;
+
+            try {
+                const response = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Auth-Request-Type': 'guest',
+                        // 'Uvid-Hint': `UVID ${uuid}`
+                    },
+                    body: new URLSearchParams({
+                        grant_type: 'authorization_code',
+                        client_id: key,
+                        // client_secret: secret,
+                        redirect_uri: callbackUrl,
+                        code: authCode,
+                        code_verifier: codeVerifier
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                jwtDisplay.textContent = `JWT Token: ${data.access_token}`;
+                
+            } catch (error) {
+                console.error('Error getting JWT token:', error);
+                alert('Error getting JWT token. Check console for details.');
             }
         });
     </script>
